@@ -1,0 +1,112 @@
+import sqlite3
+
+# ---------- Database Setup ----------
+conn = sqlite3.connect("bank.db")
+cursor = conn.cursor()
+
+# Create table if not exists
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS accounts (
+    account_number INTEGER PRIMARY KEY,
+    name TEXT,
+    pin INTEGER,
+    balance REAL
+)
+""")
+conn.commit()
+
+
+# ---------- BankAccount Class ----------
+class BankAccount:
+    def __init__(self, account_number, name, pin, balance=1000):
+        self.account_number = account_number
+        self.name = name
+        self.pin = pin
+        self.balance = balance
+        self.save_to_db()
+
+    def save_to_db(self):
+        cursor.execute("""
+        INSERT OR REPLACE INTO accounts (account_number, name, pin, balance)
+        VALUES (?, ?, ?, ?)
+        """, (self.account_number, self.name, self.pin, self.balance))
+        conn.commit()
+
+    @staticmethod
+    def get_account(account_number):
+        cursor.execute("SELECT * FROM accounts WHERE account_number = ?", (account_number,))
+        row = cursor.fetchone()
+        if row:
+            return BankAccount(row[0], row[1], row[2], row[3])
+        else:
+            return None
+
+    def check_pin(self, code):
+        return self.pin == code
+
+    def deposit(self, amount):
+        self.balance += amount
+        self.save_to_db()
+        print("Remaining balance:", self.balance)
+
+    def withdraw(self, amount):
+        if self.balance >= amount:
+            self.balance -= amount
+            self.save_to_db()
+            print("Remaining balance:", self.balance)
+        else:
+            print("Insufficient balance!")
+
+    def show_balance(self):
+        print("Remaining balance in your account:", self.balance)
+
+
+# ---------- Menu ----------
+print("1. Withdraw\n2. Deposit\n3. Check Balance\n4. Create New Profile")
+
+val = int(input("Enter your choice: "))
+
+if val == 4:
+    name = input("Enter your name: ")
+    acc_no = int(input("Enter your account number: "))
+    set_pin = int(input("Enter your new PIN: "))
+    person = BankAccount(acc_no, name, set_pin)
+    print("Profile created successfully with default balance 1000!")
+
+    check = input("Do you want to perform another action? (Yes/No): ")
+    if check.lower() == "yes":
+        print("1. Withdraw\n2. Deposit\n3. Check Balance")
+        val = int(input("Enter your choice: "))
+    else:
+        print("Thank you")
+        exit()
+
+else:
+    acc_no = int(input("Enter your account number: "))
+    person = BankAccount.get_account(acc_no)
+    if not person:
+        print("Account not found!")
+        exit()
+
+if val == 1:
+    reduce = int(input("Enter amount to withdraw: "))
+    pin1 = int(input("Enter your PIN: "))
+    if person.check_pin(pin1):
+        person.withdraw(reduce)
+    else:
+        print("Your PIN is wrong!")
+
+elif val == 2:
+    amount = int(input("Enter amount to deposit: "))
+    pin1 = int(input("Enter your PIN: "))
+    if person.check_pin(pin1):
+        person.deposit(amount)
+    else:
+        print("Your PIN is wrong!")
+
+elif val == 3:
+    pin1 = int(input("Enter your PIN: "))
+    if person.check_pin(pin1):
+        person.show_balance()
+    else:
+        print("Your PIN is wrong!")
